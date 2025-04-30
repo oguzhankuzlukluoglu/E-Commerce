@@ -13,7 +13,10 @@ import (
 
 func main() {
 	// Load configuration
-	cfg := config.LoadConfig()
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
+	}
 
 	// Initialize database connection
 	db, err := database.NewDB(cfg)

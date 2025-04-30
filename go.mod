@@ -9,8 +9,9 @@ require (
 	github.com/go-chi/chi/v5 v5.2.1
 	github.com/go-chi/cors v1.2.1
 	github.com/golang-jwt/jwt/v5 v5.0.0
+	github.com/joho/godotenv v1.5.1
 	github.com/prometheus/client_golang v1.20.4
-	github.com/redis/go-redis/v9 v9.3.0
+	github.com/redis/go-redis/v9 v9.5.1
 	github.com/stretchr/testify v1.10.0
 	github.com/swaggo/swag v1.16.2
 	go.uber.org/zap v1.26.0
