@@ -1,0 +1,146 @@
+version: '3.8'
+
+services:
+  traefik:
+    image: traefik:v2.10
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./traefik.yml:/etc/traefik/traefik.yml
+    networks:
+      - web
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - web
+
+  postgres:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ecommerce
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - web
+
+  user-service:
+    build:
+      context: ../..
+      dockerfile: deployments/docker/user-service.Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: ecommerce
+      REDIS_ADDR: redis:6379
+      SERVER_PORT: "8080"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - web
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.user.rule=PathPrefix(`/api/users`)"
+      - "traefik.http.services.user.loadbalancer.server.port=8080"
+
+  product-service:
+    build:
+      context: ../..
+      dockerfile: deployments/docker/product-service.Dockerfile
+    ports:
+      - "8081:8081"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: ecommerce
+      REDIS_ADDR: redis:6379
+      SERVER_PORT: "8081"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - web
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.product.rule=PathPrefix(`/api/products`)"
+      - "traefik.http.services.product.loadbalancer.server.port=8081"
+
+  order-service:
+    build:
+      context: ../..
+      dockerfile: deployments/docker/order-service.Dockerfile
+    ports:
+      - "8082:8082"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: ecommerce
+      REDIS_ADDR: redis:6379
+      SERVER_PORT: "8082"
+    depends_on:
+      - postgres
+      - product-service
+      - redis
+    networks:
+      - web
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.order.rule=PathPrefix(`/api/orders`)"
+      - "traefik.http.services.order.loadbalancer.server.port=8082"
+
+  payment-service:
+    build:
+      context: ../..
+      dockerfile: deployments/docker/payment-service.Dockerfile
+    ports:
+      - "8084:8084"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: ecommerce
+      REDIS_ADDR: redis:6379
+      PORT: "8084"
+    depends_on:
+      - postgres
+      - order-service
+      - redis
+    networks:
+      - web
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.payment.rule=PathPrefix(`/api/payments`)"
+      - "traefik.http.services.payment.loadbalancer.server.port=8084"
+
+networks:
+  web:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data: 
