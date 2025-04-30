@@ -83,7 +83,7 @@ func LoadConfig() (*Config, error) {
 		EnableMetrics: getEnvAsBool("ENABLE_METRICS", true),
 		MetricsPort:   getEnvAsInt("METRICS_PORT", 9090),
 
-		LogLevel:  getEnv("LOG_LEVEL", "info"),
+		LogLevel:  getEnv("LOG_LEVEL", "debug"),
 		LogFormat: getEnv("LOG_FORMAT", "json"),
 	}, nil
 }
