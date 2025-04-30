@@ -67,4 +67,3 @@ docker-compose.override.yml
 *.pem
 *.key
 *.crt 
-.Temel Seviye Mikroservis Tabanlı E-Ticaret v2.pdf
