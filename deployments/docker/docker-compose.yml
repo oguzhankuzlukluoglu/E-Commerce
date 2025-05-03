@@ -10,7 +10,7 @@ services:
       - "--entrypoints.web.address=:80"
     ports:
       - "80:80"
-      - "8080:8080"
+      - "8088:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./traefik.yml:/etc/traefik/traefik.yml
@@ -44,7 +44,7 @@ services:
       context: ../..
       dockerfile: deployments/docker/user-service.Dockerfile
     ports:
-      - "8080:8080"
+      - "8090:8080"
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
@@ -68,7 +68,7 @@ services:
       context: ../..
       dockerfile: deployments/docker/product-service.Dockerfile
     ports:
-      - "8081:8081"
+      - "8091:8081"
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
@@ -92,7 +92,7 @@ services:
       context: ../..
       dockerfile: deployments/docker/order-service.Dockerfile
     ports:
-      - "8082:8082"
+      - "8092:8082"
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
@@ -117,7 +117,7 @@ services:
       context: ../..
       dockerfile: deployments/docker/payment-service.Dockerfile
     ports:
-      - "8084:8084"
+      - "8094:8084"
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
