@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 interface Product {
   id: number
@@ -18,8 +19,15 @@ export default function ProductsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [categories, setCategories] = useState<string[]>([])
   const [searchQuery, setSearchQuery] = useState('')
+  const router = useRouter();
 
   useEffect(() => {
+    // Auth guard
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    if (!token) {
+      router.push('/auth/login');
+      return;
+    }
     fetchProducts()
   }, [])
 

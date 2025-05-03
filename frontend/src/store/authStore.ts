@@ -2,10 +2,13 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 interface User {
-  id: string
+  id: number
   email: string
-  name: string
-  role: 'user' | 'admin'
+  first_name: string
+  last_name: string
+  role: string
+  created_at: string
+  updated_at: string
 }
 
 interface AuthState {
@@ -13,7 +16,7 @@ interface AuthState {
   token: string | null
   isAuthenticated: boolean
   login: (email: string, password: string) => Promise<void>
-  register: (name: string, email: string, password: string) => Promise<void>
+  register: (first_name: string, last_name: string, email: string, password: string) => Promise<void>
   logout: () => void
 }
 
@@ -25,7 +28,7 @@ export const useAuth = create<AuthState>()(
       isAuthenticated: false,
       login: async (email: string, password: string) => {
         try {
-          const response = await fetch('/api/auth/login', {
+          const response = await fetch('/api/login', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -48,26 +51,21 @@ export const useAuth = create<AuthState>()(
           throw error
         }
       },
-      register: async (name: string, email: string, password: string) => {
+      register: async (first_name: string, last_name: string, email: string, password: string) => {
         try {
-          const response = await fetch('/api/auth/register', {
+          const response = await fetch('/api/register', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ name, email, password }),
+            body: JSON.stringify({ first_name, last_name, email, password }),
           })
 
           if (!response.ok) {
             throw new Error('Kayıt başarısız')
           }
 
-          const data = await response.json()
-          set({
-            user: data.user,
-            token: data.token,
-            isAuthenticated: true,
-          })
+          // Kayıt başarılıysa login sayfasına yönlendirme yapılacak
         } catch (error) {
           console.error('Register error:', error)
           throw error

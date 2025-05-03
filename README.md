@@ -1,4 +1,5 @@
 # Microservices-based E-Commerce System
+cd deployments/docker && docker-compose up --build
 
 This is a microservices-based e-commerce system built with Go, Chi framework, and PostgreSQL.
 

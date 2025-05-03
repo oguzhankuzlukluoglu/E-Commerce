@@ -3,24 +3,19 @@ import { useAuth } from '@/store/authStore'
 import { toast } from 'react-hot-toast'
 
 interface User {
-  id: string
-  name: string
+  id: number
+  first_name: string
+  last_name: string
   email: string
   role: string
-  createdAt: string
+  created_at: string
+  updated_at: string
 }
 
 export default function ProfilePage() {
   const { token } = useAuth()
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: '',
-  })
 
   useEffect(() => {
     fetchUser()
@@ -28,75 +23,22 @@ export default function ProfilePage() {
 
   const fetchUser = async () => {
     try {
-      const response = await fetch('/api/users/me', {
+      const response = await fetch('/api/auth/me', {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: token ? `Bearer ${token}` : '',
         },
       })
-
       if (!response.ok) {
         throw new Error('Kullanıcı bilgileri yüklenemedi')
       }
-
       const data = await response.json()
       setUser(data)
-      setFormData((prev) => ({
-        ...prev,
-        name: data.name,
-        email: data.email,
-      }))
     } catch (error) {
-      console.error('Error fetching user:', error)
+      setUser(null)
+      toast.error('Kullanıcı bilgileri alınamadı')
     } finally {
       setLoading(false)
     }
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (formData.newPassword && formData.newPassword !== formData.confirmPassword) {
-      toast.error('Yeni şifreler eşleşmiyor')
-      return
-    }
-
-    try {
-      const response = await fetch('/api/users/me', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          currentPassword: formData.currentPassword || undefined,
-          newPassword: formData.newPassword || undefined,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Profil güncellenemedi')
-      }
-
-      const data = await response.json()
-      setUser(data)
-      setFormData((prev) => ({
-        ...prev,
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: '',
-      }))
-      toast.success('Profil başarıyla güncellendi')
-    } catch (error) {
-      console.error('Error updating profile:', error)
-      toast.error('Profil güncellenirken bir hata oluştu')
-    }
-  }
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
   if (loading) {
@@ -132,103 +74,23 @@ export default function ProfilePage() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl py-16 sm:py-24 lg:max-w-none lg:py-32">
           <h1 className="text-2xl font-bold tracking-tight text-gray-900">Profilim</h1>
-
-          <div className="mt-8">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                  İsim
-                </label>
-                <div className="mt-1">
-                  <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    required
-                    value={formData.name}
-                    onChange={handleChange}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                  E-posta
-                </label>
-                <div className="mt-1">
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    required
-                    value={formData.email}
-                    onChange={handleChange}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700">
-                  Mevcut Şifre
-                </label>
-                <div className="mt-1">
-                  <input
-                    type="password"
-                    id="currentPassword"
-                    name="currentPassword"
-                    value={formData.currentPassword}
-                    onChange={handleChange}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  />
-                </div>
-                <p className="mt-1 text-sm text-gray-500">
-                  Şifrenizi değiştirmek istemiyorsanız boş bırakabilirsiniz.
-                </p>
-              </div>
-
-              <div>
-                <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700">
-                  Yeni Şifre
-                </label>
-                <div className="mt-1">
-                  <input
-                    type="password"
-                    id="newPassword"
-                    name="newPassword"
-                    value={formData.newPassword}
-                    onChange={handleChange}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                  Yeni Şifre (Tekrar)
-                </label>
-                <div className="mt-1">
-                  <input
-                    type="password"
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <button
-                  type="submit"
-                  className="w-full rounded-md border border-transparent bg-indigo-600 px-4 py-3 text-base font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-50"
-                >
-                  Profili Güncelle
-                </button>
-              </div>
-            </form>
+          <div className="mt-8 space-y-6">
+            <div>
+              <span className="block text-sm font-medium text-gray-700">İsim</span>
+              <div className="mt-1 text-lg text-gray-900">{user.first_name} {user.last_name}</div>
+            </div>
+            <div>
+              <span className="block text-sm font-medium text-gray-700">E-posta</span>
+              <div className="mt-1 text-lg text-gray-900">{user.email}</div>
+            </div>
+            <div>
+              <span className="block text-sm font-medium text-gray-700">Rol</span>
+              <div className="mt-1 text-lg text-gray-900">{user.role}</div>
+            </div>
+            <div>
+              <span className="block text-sm font-medium text-gray-700">Kayıt Tarihi</span>
+              <div className="mt-1 text-lg text-gray-900">{new Date(user.created_at).toLocaleDateString()}</div>
+            </div>
           </div>
         </div>
       </div>

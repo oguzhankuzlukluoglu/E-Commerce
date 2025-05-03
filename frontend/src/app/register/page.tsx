@@ -8,7 +8,8 @@ export default function RegisterPage() {
   const router = useRouter()
   const { register } = useAuth()
   const [formData, setFormData] = useState({
-    name: '',
+    first_name: '',
+    last_name: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -21,9 +22,9 @@ export default function RegisterPage() {
       return
     }
     try {
-      await register(formData.name, formData.email, formData.password)
+      await register(formData.first_name, formData.last_name, formData.email, formData.password)
       toast.success('Kayıt başarılı')
-      router.push('/')
+      router.push('/login')
     } catch (error) {
       toast.error('Kayıt başarısız')
     }
@@ -43,22 +44,37 @@ export default function RegisterPage() {
           <form onSubmit={handleSubmit} className="mt-8 space-y-6">
             <div className="space-y-4">
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="first_name" className="block text-sm font-medium text-gray-700">
                   İsim
                 </label>
                 <div className="mt-1">
                   <input
                     type="text"
-                    id="name"
-                    name="name"
+                    id="first_name"
+                    name="first_name"
                     required
-                    value={formData.name}
+                    value={formData.first_name}
                     onChange={handleChange}
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   />
                 </div>
               </div>
-
+              <div>
+                <label htmlFor="last_name" className="block text-sm font-medium text-gray-700">
+                  Soyisim
+                </label>
+                <div className="mt-1">
+                  <input
+                    type="text"
+                    id="last_name"
+                    name="last_name"
+                    required
+                    value={formData.last_name}
+                    onChange={handleChange}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  />
+                </div>
+              </div>
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                   E-posta
@@ -75,7 +91,6 @@ export default function RegisterPage() {
                   />
                 </div>
               </div>
-
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                   Şifre
@@ -92,7 +107,6 @@ export default function RegisterPage() {
                   />
                 </div>
               </div>
-
               <div>
                 <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
                   Şifre Tekrar
@@ -110,7 +124,6 @@ export default function RegisterPage() {
                 </div>
               </div>
             </div>
-
             <div>
               <button
                 type="submit"
@@ -119,7 +132,6 @@ export default function RegisterPage() {
                 Kayıt Ol
               </button>
             </div>
-
             <div className="text-center">
               <p className="text-sm text-gray-600">
                 Zaten hesabınız var mı?{' '}
