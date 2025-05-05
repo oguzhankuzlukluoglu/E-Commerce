@@ -43,10 +43,8 @@ type Config struct {
 }
 
 func LoadConfig() (*Config, error) {
-	// Load .env file
-	if err := godotenv.Load(); err != nil {
-		return nil, fmt.Errorf("error loading .env file: %v", err)
-	}
+	// Load .env file if it exists
+	_ = godotenv.Load()
 
 	// Parse JWT expiration duration
 	jwtExpiration, err := time.ParseDuration(getEnv("JWT_EXPIRATION", "24h"))
@@ -55,13 +53,13 @@ func LoadConfig() (*Config, error) {
 	}
 
 	return &Config{
-		ServerPort: getEnv("SERVER_PORT", "8080"),
+		ServerPort: getEnv("SERVER_PORT", "8081"),
 		Env:        getEnv("ENV", "development"),
 
 		DBHost:     getEnv("DB_HOST", "localhost"),
 		DBPort:     getEnvAsInt("DB_PORT", 5432),
 		DBUser:     getEnv("DB_USER", "postgres"),
-		DBPassword: getEnv("DB_PASSWORD", ""),
+		DBPassword: getEnv("DB_PASSWORD", "postgres"),
 		DBName:     getEnv("DB_NAME", "ecommerce"),
 		DBSSLMode:  getEnv("DB_SSL_MODE", "disable"),
 
@@ -70,7 +68,7 @@ func LoadConfig() (*Config, error) {
 		RedisPassword: getEnv("REDIS_PASSWORD", ""),
 		RedisDB:       getEnvAsInt("REDIS_DB", 0),
 
-		JWTSecret:     getEnv("JWT_SECRET", ""),
+		JWTSecret:     getEnv("JWT_SECRET", "your-secret-key"),
 		JWTExpiration: jwtExpiration,
 
 		PaymentServiceURL: getEnv("PAYMENT_SERVICE_URL", "http://localhost:8084"),
