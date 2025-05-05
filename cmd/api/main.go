@@ -1,92 +1,111 @@
 package main
 
 import (
-	"context"
 	"log"
-	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/redis/go-redis/v9"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
-
+	"github.com/oguzhan/e-commerce/internal/auth"
 	"github.com/oguzhan/e-commerce/internal/order"
 	"github.com/oguzhan/e-commerce/internal/payment"
-	"github.com/oguzhan/e-commerce/pkg/metrics"
+	"github.com/oguzhan/e-commerce/internal/product"
+	"github.com/oguzhan/e-commerce/internal/user"
+	"github.com/oguzhan/e-commerce/pkg/config"
+	"github.com/oguzhan/e-commerce/pkg/database"
 )
 
 func main() {
-	// Initialize database connection
-	dsn := "host=localhost user=postgres password=postgres dbname=ecommerce port=5432 sslmode=disable"
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	// Load configuration
+	cfg, err := config.LoadConfig()
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Initialize Redis client
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "",
-		DB:       0,
-	})
+	// Initialize database
+	db, err := database.InitDB(cfg)
+	if err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
 
-	// Initialize repositories
-	orderRepo := order.NewRepository(db)
-	paymentRepo := payment.NewRepository(db)
+	// Run migrations
+	if err := database.AutoMigrate(db); err != nil {
+		log.Fatalf("Failed to run migrations: %v", err)
+	}
 
 	// Initialize services
-	orderService := order.NewService(orderRepo)
-	paymentService := payment.NewService(paymentRepo, rdb)
+	authService := auth.NewService(db)
+	userService := user.NewService(db)
+	productService := product.NewService(db)
+	orderService := order.NewService(db)
+	paymentService := payment.NewService(db)
 
-	// Initialize HTTP handlers
+	// Initialize handlers
+	authHandler := auth.NewHandler(authService)
+	userHandler := user.NewHandler(userService)
+	productHandler := product.NewHandler(productService)
 	orderHandler := order.NewHandler(orderService)
 	paymentHandler := payment.NewHandler(paymentService)
 
-	// Initialize Gin router
+	// Initialize router
 	router := gin.Default()
 
-	// Add Prometheus metrics endpoint
-	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
+	// Auth routes
+	router.POST("/auth/register", authHandler.Register)
+	router.POST("/auth/login", authHandler.Login)
+	router.GET("/me", authHandler.AuthMiddleware(), authHandler.GetUserFromToken)
 
-	// Add middleware
-	router.Use(metrics.HTTPMetricsMiddleware())
-
-	// Register routes
-	orderHandler.RegisterRoutes(router)
-	paymentHandler.RegisterRoutes(router)
-
-	// Create HTTP server
-	srv := &http.Server{
-		Addr:    ":8080",
-		Handler: router,
+	// User routes
+	userGroup := router.Group("/users")
+	userGroup.Use(authHandler.AuthMiddleware())
+	{
+		userGroup.GET("/:id", userHandler.GetUser)
+		userGroup.PUT("/:id", userHandler.UpdateUser)
+		userGroup.DELETE("/:id", userHandler.DeleteUser)
+		userGroup.GET("", userHandler.ListUsers)
+		userGroup.POST("/:id/change-password", userHandler.ChangePassword)
 	}
 
-	// Start server in a goroutine
-	go func() {
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Failed to start server: %v", err)
-		}
-	}()
-
-	// Wait for interrupt signal to gracefully shutdown the server
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
-	log.Println("Shutting down server...")
-
-	// Create a deadline for server shutdown
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	// Attempt graceful shutdown
-	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatal("Server forced to shutdown:", err)
+	// Product routes
+	productGroup := router.Group("/products")
+	{
+		productGroup.GET("", productHandler.ListProducts)
+		productGroup.GET("/:id", productHandler.GetProduct)
+		productGroup.GET("/search", productHandler.SearchProducts)
 	}
 
-	log.Println("Server exiting")
+	// Protected product routes
+	protectedProductGroup := router.Group("/products")
+	protectedProductGroup.Use(authHandler.AuthMiddleware())
+	{
+		protectedProductGroup.POST("", productHandler.CreateProduct)
+		protectedProductGroup.PUT("/:id", productHandler.UpdateProduct)
+		protectedProductGroup.DELETE("/:id", productHandler.DeleteProduct)
+	}
+
+	// Order routes
+	orderGroup := router.Group("/orders")
+	orderGroup.Use(authHandler.AuthMiddleware())
+	{
+		orderGroup.POST("", orderHandler.CreateOrder)
+		orderGroup.GET("/:id", orderHandler.GetOrder)
+		orderGroup.GET("", orderHandler.ListOrders)
+		orderGroup.PUT("/:id", orderHandler.UpdateOrder)
+		orderGroup.DELETE("/:id", orderHandler.CancelOrder)
+	}
+
+	// Payment routes
+	paymentGroup := router.Group("/payments")
+	paymentGroup.Use(authHandler.AuthMiddleware())
+	{
+		paymentGroup.POST("", paymentHandler.CreatePayment)
+		paymentGroup.GET("/:id", paymentHandler.GetPayment)
+		paymentGroup.GET("", paymentHandler.ListPayments)
+		paymentGroup.POST("/:id/process", paymentHandler.ProcessPayment)
+		paymentGroup.POST("/:id/refund", paymentHandler.RefundPayment)
+	}
+
+	// Start server
+	log.Printf("Starting server on port %s", cfg.ServerPort)
+	if err := router.Run(":" + cfg.ServerPort); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
+	}
 }

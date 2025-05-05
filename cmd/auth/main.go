@@ -14,36 +14,35 @@ func main() {
 	// Load configuration
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		log.Fatalf("Failed to load configuration: %v", err)
+		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Initialize database connection
-	db, err := database.NewDB(cfg)
+	// Initialize database
+	db, err := database.InitDB(cfg)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	// Initialize auth service
+	// Run migrations
+	if err := database.AutoMigrate(db); err != nil {
+		log.Fatalf("Failed to run migrations: %v", err)
+	}
+
+	// Initialize service
 	authService := auth.NewService(db)
 	authHandler := auth.NewHandler(authService)
 
 	// Initialize router
-	r := gin.Default()
+	router := gin.Default()
 
-	// Public routes
-	r.POST("/register", authHandler.Register)
-	r.POST("/login", authHandler.Login)
-
-	// Protected routes
-	authGroup := r.Group("/auth")
-	authGroup.Use(authHandler.AuthMiddleware())
-	{
-		authGroup.GET("/me", authHandler.GetUserFromToken)
-	}
+	// Register routes
+	router.POST("/register", authHandler.Register)
+	router.POST("/login", authHandler.Login)
+	router.GET("/me", authHandler.AuthMiddleware(), authHandler.GetUserFromToken)
 
 	// Start server
-	log.Printf("Starting auth service on port %s", cfg.ServerPort)
-	if err := http.ListenAndServe(":"+cfg.ServerPort, r); err != nil {
+	log.Printf("Auth service starting on port %s", cfg.ServerPort)
+	if err := http.ListenAndServe(":"+cfg.ServerPort, router); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }

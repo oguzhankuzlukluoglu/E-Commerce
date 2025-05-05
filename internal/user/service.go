@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/oguzhan/e-commerce/pkg/models"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -23,9 +24,6 @@ func (s *Service) CreateUser(user *models.User) error {
 func (s *Service) GetUserByID(id uint) (*models.User, error) {
 	var user models.User
 	if err := s.db.First(&user, id).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("user not found")
-		}
 		return nil, err
 	}
 	return &user, nil
@@ -43,26 +41,12 @@ func (s *Service) GetUserByEmail(email string) (*models.User, error) {
 }
 
 func (s *Service) UpdateUser(id uint, user *models.User) error {
-	existingUser, err := s.GetUserByID(id)
-	if err != nil {
+	var existingUser models.User
+	if err := s.db.First(&existingUser, id).Error; err != nil {
 		return err
 	}
 
-	// Update only non-zero fields
-	if user.Email != "" {
-		existingUser.Email = user.Email
-	}
-	if user.FirstName != "" {
-		existingUser.FirstName = user.FirstName
-	}
-	if user.LastName != "" {
-		existingUser.LastName = user.LastName
-	}
-	if user.Role != "" {
-		existingUser.Role = user.Role
-	}
-
-	return s.db.Save(existingUser).Error
+	return s.db.Model(&existingUser).Updates(user).Error
 }
 
 func (s *Service) DeleteUser(id uint) error {
@@ -71,4 +55,31 @@ func (s *Service) DeleteUser(id uint) error {
 
 func (s *Service) UpdateLastLogin(id uint) error {
 	return s.db.Model(&models.User{}).Where("id = ?", id).Update("last_login", time.Now()).Error
+}
+
+func (s *Service) ListUsers(page, limit int) ([]models.User, int64, error) {
+	var users []models.User
+	var total int64
+	if err := s.db.Limit(limit).Offset((page - 1) * limit).Find(&users).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	return users, total, nil
+}
+
+func (s *Service) ChangePassword(id uint, oldPassword, newPassword string) error {
+	var user models.User
+	if err := s.db.First(&user, id).Error; err != nil {
+		return err
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(oldPassword)); err != nil {
+		return errors.New("invalid old password")
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	return s.db.Model(&user).Update("password", string(hashedPassword)).Error
 }

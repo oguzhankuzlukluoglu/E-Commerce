@@ -1,11 +1,10 @@
 package product
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
-	"github.com/go-chi/chi/v5"
+	"github.com/gin-gonic/gin"
 	"github.com/oguzhan/e-commerce/pkg/models"
 )
 
@@ -17,149 +16,133 @@ func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
 
-func (h *Handler) RegisterRoutes(r chi.Router) {
-	r.Route("/products", func(r chi.Router) {
-		r.Post("/", h.CreateProduct)
-		r.Get("/", h.ListProducts)
-		r.Get("/search", h.SearchProducts)
-		r.Get("/{id}", h.GetProduct)
-		r.Put("/{id}", h.UpdateProduct)
-		r.Delete("/{id}", h.DeleteProduct)
-		r.Put("/{id}/stock", h.UpdateStock)
-	})
-}
-
-func (h *Handler) CreateProduct(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CreateProduct(c *gin.Context) {
 	var product models.Product
-	if err := json.NewDecoder(r.Body).Decode(&product); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	if err := c.ShouldBindJSON(&product); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	if err := h.service.CreateProduct(&product); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(product)
+	c.JSON(http.StatusCreated, product)
 }
 
-func (h *Handler) GetProduct(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
+func (h *Handler) GetProduct(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		http.Error(w, "Invalid product ID", http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid product ID"})
 		return
 	}
 
 	product, err := h.service.GetProductByID(uint(id))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
 
-	json.NewEncoder(w).Encode(product)
+	c.JSON(http.StatusOK, product)
 }
 
-func (h *Handler) ListProducts(w http.ResponseWriter, r *http.Request) {
-	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+func (h *Handler) ListProducts(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	if page < 1 {
 		page = 1
 	}
 
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	if limit < 1 {
 		limit = 10
 	}
 
 	products, total, err := h.service.ListProducts(page, limit)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	response := map[string]interface{}{
+	c.JSON(http.StatusOK, gin.H{
 		"products": products,
 		"total":    total,
 		"page":     page,
 		"limit":    limit,
-	}
-
-	json.NewEncoder(w).Encode(response)
+	})
 }
 
-func (h *Handler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
+func (h *Handler) UpdateProduct(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		http.Error(w, "Invalid product ID", http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid product ID"})
 		return
 	}
 
 	var product models.Product
-	if err := json.NewDecoder(r.Body).Decode(&product); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	if err := c.ShouldBindJSON(&product); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	if err := h.service.UpdateProduct(uint(id), &product); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(product)
+	c.JSON(http.StatusOK, product)
 }
 
-func (h *Handler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
+func (h *Handler) DeleteProduct(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		http.Error(w, "Invalid product ID", http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid product ID"})
 		return
 	}
 
 	if err := h.service.DeleteProduct(uint(id)); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	c.Status(http.StatusNoContent)
 }
 
-func (h *Handler) UpdateStock(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
+func (h *Handler) UpdateStock(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		http.Error(w, "Invalid product ID", http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid product ID"})
 		return
 	}
 
 	var request struct {
-		Quantity int `json:"quantity"`
+		Quantity int `json:"quantity" binding:"required"`
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	if err := h.service.UpdateStock(uint(id), request.Quantity); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	c.Status(http.StatusOK)
 }
 
-func (h *Handler) SearchProducts(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query().Get("q")
-	category := r.URL.Query().Get("category")
-	minPrice, _ := strconv.ParseFloat(r.URL.Query().Get("min_price"), 64)
-	maxPrice, _ := strconv.ParseFloat(r.URL.Query().Get("max_price"), 64)
+func (h *Handler) SearchProducts(c *gin.Context) {
+	query := c.Query("q")
+	category := c.Query("category")
+	minPrice, _ := strconv.ParseFloat(c.Query("min_price"), 64)
+	maxPrice, _ := strconv.ParseFloat(c.Query("max_price"), 64)
 
 	products, err := h.service.SearchProducts(query, category, minPrice, maxPrice)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	json.NewEncoder(w).Encode(products)
+	c.JSON(http.StatusOK, products)
 }

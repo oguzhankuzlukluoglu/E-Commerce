@@ -2,6 +2,8 @@ package auth
 
 import (
 	"errors"
+	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -12,61 +14,82 @@ import (
 )
 
 type Service struct {
-	db *gorm.DB
+	db     *gorm.DB
+	logger *log.Logger
 }
 
 func NewService(db *gorm.DB) *Service {
-	return &Service{db: db}
+	return &Service{
+		db:     db,
+		logger: log.Default(),
+	}
 }
 
-func (s *Service) Register(req *models.RegisterRequest) error {
-	// Check if user already exists
-	var existingUser models.User
-	if err := s.db.Where("email = ?", req.Email).First(&existingUser).Error; err == nil {
-		return errors.New("user already exists")
-	}
-
-	// Hash password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+func (s *Service) Register(user *models.User) error {
+	// Hash the password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to hash password: %v", err)
 	}
 
-	// Create user
-	user := &models.User{
-		Email:     req.Email,
+	// Create a new user with the hashed password
+	newUser := &models.User{
+		Email:     user.Email,
 		Password:  string(hashedPassword),
-		FirstName: req.FirstName,
-		LastName:  req.LastName,
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
 		Role:      "user",
 	}
 
-	return s.db.Create(user).Error
+	// Save the user to the database
+	if err := s.db.Create(newUser).Error; err != nil {
+		return fmt.Errorf("failed to create user: %v", err)
+	}
+
+	// Copy the created user's data back to the input user
+	user.ID = newUser.ID
+	user.CreatedAt = newUser.CreatedAt
+	user.UpdatedAt = newUser.UpdatedAt
+	user.DeletedAt = newUser.DeletedAt
+	user.Role = newUser.Role
+	user.LastLogin = newUser.LastLogin
+
+	return nil
 }
 
-func (s *Service) Login(req *models.LoginRequest) (*models.LoginResponse, error) {
-	// Find user
+func (s *Service) Login(email, password string) (*models.User, error) {
+	// Find the user by email
 	var user models.User
-	if err := s.db.Where("email = ?", req.Email).First(&user).Error; err != nil {
-		return nil, errors.New("invalid credentials")
+	if err := s.db.Where("email = ?", email).First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("user not found")
+		}
+		return nil, fmt.Errorf("failed to retrieve user: %v", err)
 	}
 
-	// Check password
-	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		return nil, errors.New("invalid credentials")
-	}
-
-	// Generate token
-	token, expiresAt, err := s.generateToken(&user)
+	// Compare the provided password with the hashed password
+	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 	if err != nil {
+		s.logger.Printf("Password comparison failed: %v", err)
+		return nil, errors.New("invalid password")
+	}
+
+	// Update last login time
+	now := time.Now()
+	user.LastLogin = now
+	if err := s.db.Model(&user).Update("last_login", now).Error; err != nil {
+		return nil, fmt.Errorf("failed to update last login time: %v", err)
+	}
+
+	return &user, nil
+}
+
+func (s *Service) GetUserByID(id uint) (*models.User, error) {
+	var user models.User
+	if err := s.db.First(&user, id).Error; err != nil {
 		return nil, err
 	}
-
-	return &models.LoginResponse{
-		Token:     token,
-		ExpiresAt: expiresAt,
-		User:      user,
-	}, nil
+	return &user, nil
 }
 
 func (s *Service) generateToken(user *models.User) (string, time.Time, error) {

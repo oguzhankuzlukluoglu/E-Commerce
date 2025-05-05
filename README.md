@@ -1,5 +1,4 @@
 # Microservices-based E-Commerce System
-cd deployments/docker && docker-compose up --build
 
 This is a microservices-based e-commerce system built with Go, Chi framework, and PostgreSQL.
 
@@ -24,7 +23,6 @@ This is a microservices-based e-commerce system built with Go, Chi framework, an
 │   ├── models/           # Shared data models
 │   └── utils/            # Utility functions
 └── deployments/          # Deployment configurations
-    └── docker/           # Docker configurations
 ```
 
 ## Services
@@ -40,7 +38,6 @@ This is a microservices-based e-commerce system built with Go, Chi framework, an
 - Go
 - Chi (HTTP router)
 - PostgreSQL
-- Docker
 - gRPC (for inter-service communication)
 
 ## Getting Started
@@ -49,7 +46,7 @@ This is a microservices-based e-commerce system built with Go, Chi framework, an
 2. Install dependencies: `go mod tidy`
 3. Set up PostgreSQL database
 4. Configure environment variables
-5. Run services using Docker Compose
+5. Run services individually
 
 ## Development
 

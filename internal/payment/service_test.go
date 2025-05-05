@@ -4,13 +4,12 @@ import (
 	"testing"
 
 	"github.com/oguzhan/e-commerce/pkg/models"
-	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
-func setupTestDB(t *testing.T) (*Repository, *redis.Client) {
+func setupTestDB(t *testing.T) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("Failed to connect to database: %v", err)
@@ -32,18 +31,12 @@ func setupTestDB(t *testing.T) (*Repository, *redis.Client) {
 		t.Fatalf("Failed to create test order: %v", err)
 	}
 
-	// Initialize Redis client for testing
-	rdb := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-		DB:   0,
-	})
-
-	return NewRepository(db), rdb
+	return db
 }
 
 func TestCreatePayment(t *testing.T) {
-	repo, rdb := setupTestDB(t)
-	service := NewService(repo, rdb)
+	db := setupTestDB(t)
+	service := NewService(db)
 
 	payment := &models.Payment{
 		OrderID:       1,
@@ -60,8 +53,8 @@ func TestCreatePayment(t *testing.T) {
 }
 
 func TestProcessPayment(t *testing.T) {
-	repo, rdb := setupTestDB(t)
-	service := NewService(repo, rdb)
+	db := setupTestDB(t)
+	service := NewService(db)
 
 	// Create a payment first
 	payment := &models.Payment{
@@ -74,7 +67,7 @@ func TestProcessPayment(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Process the payment
-	err = service.ProcessPayment(payment.ID)
+	err = service.ProcessPayment(payment.ID, payment.UserID)
 	assert.NoError(t, err)
 
 	// Verify payment status
@@ -84,8 +77,8 @@ func TestProcessPayment(t *testing.T) {
 }
 
 func TestGetPaymentByID(t *testing.T) {
-	repo, rdb := setupTestDB(t)
-	service := NewService(repo, rdb)
+	db := setupTestDB(t)
+	service := NewService(db)
 
 	// Create a payment
 	payment := &models.Payment{
@@ -105,8 +98,8 @@ func TestGetPaymentByID(t *testing.T) {
 }
 
 func TestGetPaymentsByUserID(t *testing.T) {
-	repo, rdb := setupTestDB(t)
-	service := NewService(repo, rdb)
+	db := setupTestDB(t)
+	service := NewService(db)
 
 	// Create another test order
 	order2 := &models.Order{
@@ -114,7 +107,6 @@ func TestGetPaymentsByUserID(t *testing.T) {
 		TotalAmount: 200.00,
 		Status:      models.OrderStatusPending,
 	}
-	db := repo.db
 	if err := db.Create(order2).Error; err != nil {
 		t.Fatalf("Failed to create test order: %v", err)
 	}
@@ -147,8 +139,8 @@ func TestGetPaymentsByUserID(t *testing.T) {
 }
 
 func TestRefundPayment(t *testing.T) {
-	repo, rdb := setupTestDB(t)
-	service := NewService(repo, rdb)
+	db := setupTestDB(t)
+	service := NewService(db)
 
 	// Create and process a payment
 	payment := &models.Payment{
@@ -160,11 +152,11 @@ func TestRefundPayment(t *testing.T) {
 	err := service.CreatePayment(payment)
 	assert.NoError(t, err)
 
-	err = service.ProcessPayment(payment.ID)
+	err = service.ProcessPayment(payment.ID, payment.UserID)
 	assert.NoError(t, err)
 
 	// Refund the payment
-	err = service.RefundPayment(payment.ID)
+	err = service.RefundPayment(payment.ID, payment.UserID)
 	assert.NoError(t, err)
 
 	// Verify payment status
@@ -174,8 +166,8 @@ func TestRefundPayment(t *testing.T) {
 }
 
 func TestListPayments(t *testing.T) {
-	repo, rdb := setupTestDB(t)
-	service := NewService(repo, rdb)
+	db := setupTestDB(t)
+	service := NewService(db)
 
 	// Create a payment for the first order
 	payment := &models.Payment{
@@ -194,7 +186,6 @@ func TestListPayments(t *testing.T) {
 			TotalAmount: float64(i * 100),
 			Status:      models.OrderStatusPending,
 		}
-		db := repo.db
 		if err := db.Create(order).Error; err != nil {
 			t.Fatalf("Failed to create test order: %v", err)
 		}

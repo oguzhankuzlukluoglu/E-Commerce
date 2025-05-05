@@ -16,28 +16,17 @@ func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
 
-type CreatePaymentRequest struct {
-	OrderID       uint    `json:"order_id" binding:"required"`
-	UserID        uint    `json:"user_id" binding:"required"`
-	Amount        float64 `json:"amount" binding:"required"`
-	PaymentMethod string  `json:"payment_method" binding:"required"`
-}
-
 func (h *Handler) CreatePayment(c *gin.Context) {
-	var req CreatePaymentRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	var payment models.Payment
+	if err := c.ShouldBindJSON(&payment); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	payment := &models.Payment{
-		OrderID:       req.OrderID,
-		UserID:        req.UserID,
-		Amount:        req.Amount,
-		PaymentMethod: req.PaymentMethod,
-	}
+	userID := c.GetUint("user_id")
+	payment.UserID = userID
 
-	if err := h.service.CreatePayment(payment); err != nil {
+	if err := h.service.CreatePayment(&payment); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -52,12 +41,13 @@ func (h *Handler) ProcessPayment(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.ProcessPayment(uint(id)); err != nil {
+	userID := c.GetUint("user_id")
+	if err := h.service.ProcessPayment(uint(id), userID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "payment processed successfully"})
+	c.Status(http.StatusOK)
 }
 
 func (h *Handler) GetPayment(c *gin.Context) {
@@ -67,9 +57,15 @@ func (h *Handler) GetPayment(c *gin.Context) {
 		return
 	}
 
+	userID := c.GetUint("user_id")
 	payment, err := h.service.GetPaymentByID(uint(id))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "payment not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+
+	if payment.UserID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
 		return
 	}
 
@@ -77,13 +73,8 @@ func (h *Handler) GetPayment(c *gin.Context) {
 }
 
 func (h *Handler) GetUserPayments(c *gin.Context) {
-	userID, err := strconv.ParseUint(c.Param("user_id"), 10, 32)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID"})
-		return
-	}
-
-	payments, err := h.service.GetPaymentsByUserID(uint(userID))
+	userID := c.GetUint("user_id")
+	payments, err := h.service.GetPaymentsByUserID(userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -99,9 +90,15 @@ func (h *Handler) GetOrderPayments(c *gin.Context) {
 		return
 	}
 
+	userID := c.GetUint("user_id")
 	payments, err := h.service.GetPaymentsByOrderID(uint(orderID))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if len(payments) > 0 && payments[0].UserID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
 		return
 	}
 
@@ -115,17 +112,25 @@ func (h *Handler) RefundPayment(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.RefundPayment(uint(id)); err != nil {
+	userID := c.GetUint("user_id")
+	if err := h.service.RefundPayment(uint(id), userID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "payment refunded successfully"})
+	c.Status(http.StatusOK)
 }
 
 func (h *Handler) ListPayments(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	if page < 1 {
+		page = 1
+	}
+
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if limit < 1 {
+		limit = 10
+	}
 
 	payments, total, err := h.service.ListPayments(page, limit)
 	if err != nil {
