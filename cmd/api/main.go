@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/oguzhan/e-commerce/internal/auth"
+	"github.com/oguzhan/e-commerce/internal/cart"
 	"github.com/oguzhan/e-commerce/internal/order"
 	"github.com/oguzhan/e-commerce/internal/payment"
 	"github.com/oguzhan/e-commerce/internal/product"
@@ -37,6 +38,7 @@ func main() {
 	productService := product.NewService(db)
 	orderService := order.NewService(db)
 	paymentService := payment.NewService(db)
+	cartService := cart.NewService(db)
 
 	// Initialize handlers
 	authHandler := auth.NewHandler(authService)
@@ -44,6 +46,7 @@ func main() {
 	productHandler := product.NewHandler(productService)
 	orderHandler := order.NewHandler(orderService)
 	paymentHandler := payment.NewHandler(paymentService)
+	cartHandler := cart.NewHandler(cartService)
 
 	// Initialize router
 	router := gin.Default()
@@ -62,6 +65,24 @@ func main() {
 		userGroup.DELETE("/:id", userHandler.DeleteUser)
 		userGroup.GET("", userHandler.ListUsers)
 		userGroup.POST("/:id/change-password", userHandler.ChangePassword)
+
+		// Admin only routes
+		userGroup.POST("/:id/deactivate", userHandler.DeactivateUser)
+		userGroup.POST("/:id/activate", userHandler.ActivateUser)
+		userGroup.PUT("/:id/role", userHandler.UpdateUserRole)
+		userGroup.POST("/:id/reset-password", userHandler.ResetPassword)
+
+		// Address routes
+		userGroup.POST("/addresses", userHandler.CreateAddress)
+		userGroup.GET("/addresses", userHandler.GetAddresses)
+		userGroup.PUT("/addresses/:id", userHandler.UpdateAddress)
+		userGroup.DELETE("/addresses/:id", userHandler.DeleteAddress)
+
+		// Contact routes
+		userGroup.POST("/contacts", userHandler.CreateContact)
+		userGroup.GET("/contacts", userHandler.GetContacts)
+		userGroup.PUT("/contacts/:id", userHandler.UpdateContact)
+		userGroup.DELETE("/contacts/:id", userHandler.DeleteContact)
 	}
 
 	// Product routes
@@ -101,6 +122,18 @@ func main() {
 		paymentGroup.GET("", paymentHandler.ListPayments)
 		paymentGroup.POST("/:id/process", paymentHandler.ProcessPayment)
 		paymentGroup.POST("/:id/refund", paymentHandler.RefundPayment)
+	}
+
+	// Cart routes
+	cartGroup := router.Group("/cart")
+	cartGroup.Use(authHandler.AuthMiddleware())
+	{
+		cartGroup.GET("", cartHandler.GetCart)
+		cartGroup.GET("/items", cartHandler.GetItems)
+		cartGroup.POST("/items", cartHandler.AddItem)
+		cartGroup.PUT("/items/:id", cartHandler.UpdateItem)
+		cartGroup.DELETE("/items/:id", cartHandler.RemoveItem)
+		cartGroup.DELETE("", cartHandler.ClearCart)
 	}
 
 	// Start server

@@ -1,62 +1,68 @@
 package main
 
 import (
+	"database/sql"
 	"log"
 	"net/http"
+	"os"
 
-	"github.com/gin-gonic/gin"
-	"github.com/oguzhan/e-commerce/internal/auth"
-	"github.com/oguzhan/e-commerce/internal/product"
-	"github.com/oguzhan/e-commerce/pkg/config"
-	"github.com/oguzhan/e-commerce/pkg/database"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
+	_ "github.com/lib/pq"
+	"github.com/oguzhan/e-commerce/internal/product/handler"
+	"github.com/oguzhan/e-commerce/internal/product/repository"
+	"github.com/oguzhan/e-commerce/internal/product/service"
 )
 
 func main() {
-	// Load configuration
-	cfg, err := config.LoadConfig()
+	// Database connection
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		dbURL = "postgres://postgres:postgres@localhost:5432/ecommerce?sslmode=disable"
+	}
+
+	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		log.Fatal(err)
 	}
+	defer db.Close()
 
-	// Initialize database
-	db, err := database.InitDB(cfg)
-	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
-	}
+	// Initialize dependencies
+	productRepo := repository.NewProductRepository(db)
+	productService := service.NewProductService(productRepo)
+	productHandler := handler.NewProductHandler(productService)
 
-	// Run migrations
-	if err := database.AutoMigrate(db); err != nil {
-		log.Fatalf("Failed to run migrations: %v", err)
-	}
+	// Router setup
+	r := chi.NewRouter()
 
-	// Initialize services
-	productService := product.NewService(db)
-	productHandler := product.NewHandler(productService)
+	// Middleware
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	}))
 
-	// Initialize router
-	router := gin.Default()
-
-	// Register routes
-	productGroup := router.Group("/products")
-	{
-		productGroup.GET("/", productHandler.ListProducts)
-		productGroup.GET("/search", productHandler.SearchProducts)
-		productGroup.GET("/:id", productHandler.GetProduct)
-	}
-
-	// Protected routes
-	protectedGroup := router.Group("/products")
-	protectedGroup.Use(auth.NewHandler(nil).AuthMiddleware())
-	{
-		protectedGroup.POST("/", productHandler.CreateProduct)
-		protectedGroup.PUT("/:id", productHandler.UpdateProduct)
-		protectedGroup.DELETE("/:id", productHandler.DeleteProduct)
-		protectedGroup.PUT("/:id/stock", productHandler.UpdateStock)
-	}
+	// Routes
+	r.Post("/products", productHandler.CreateProduct)
+	r.Get("/products", productHandler.GetAllProducts)
+	r.Get("/products/{id}", productHandler.GetProduct)
+	r.Put("/products/{id}", productHandler.UpdateProduct)
+	r.Delete("/products/{id}", productHandler.DeleteProduct)
+	r.Patch("/products/{id}/stock", productHandler.UpdateStock)
 
 	// Start server
-	log.Printf("Product service starting on port %s", cfg.ServerPort)
-	if err := http.ListenAndServe(":"+cfg.ServerPort, router); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8081"
+	}
+
+	log.Printf("Product service starting on port %s", port)
+	if err := http.ListenAndServe(":"+port, r); err != nil {
+		log.Fatal(err)
 	}
 }

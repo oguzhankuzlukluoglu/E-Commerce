@@ -1,57 +1,71 @@
 package main
 
 import (
+	"database/sql"
 	"log"
+	"net/http"
+	"os"
 
-	"github.com/gin-gonic/gin"
-	"github.com/oguzhan/e-commerce/internal/auth"
-	"github.com/oguzhan/e-commerce/internal/user"
-	"github.com/oguzhan/e-commerce/pkg/config"
-	"github.com/oguzhan/e-commerce/pkg/database"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
+	_ "github.com/lib/pq"
+	"github.com/oguzhan/e-commerce/internal/user/handler"
+	"github.com/oguzhan/e-commerce/internal/user/repository"
+	"github.com/oguzhan/e-commerce/internal/user/service"
 )
 
 func main() {
-	// Load configuration
-	cfg, err := config.LoadConfig()
+	// Database connection
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		dbURL = "postgres://postgres:postgres@localhost:5432/ecommerce?sslmode=disable"
+	}
+
+	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
-		log.Fatalf("Failed to load configuration: %v", err)
+		log.Fatal(err)
 	}
+	defer db.Close()
 
-	// Initialize database connection
-	db, err := database.InitDB(cfg)
-	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+	// Initialize dependencies
+	userRepo := repository.NewUserRepository(db)
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		jwtSecret = "your-secret-key" // In production, use a secure secret
 	}
+	userService := service.NewUserService(userRepo, jwtSecret)
+	userHandler := handler.NewUserHandler(userService)
 
-	// Initialize services
-	authService := auth.NewService(db)
-	userService := user.NewService(db)
+	// Router setup
+	r := chi.NewRouter()
 
-	// Initialize handlers
-	authHandler := auth.NewHandler(authService)
-	userHandler := user.NewHandler(userService)
+	// Middleware
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	}))
 
-	// Initialize router
-	router := gin.Default()
-
-	// Auth routes
-	router.POST("/auth/register", authHandler.Register)
-	router.POST("/auth/login", authHandler.Login)
-
-	// User routes
-	userGroup := router.Group("/users")
-	userGroup.Use(authHandler.AuthMiddleware())
-	{
-		userGroup.GET("/:id", userHandler.GetUser)
-		userGroup.PUT("/:id", userHandler.UpdateUser)
-		userGroup.DELETE("/:id", userHandler.DeleteUser)
-		userGroup.GET("", userHandler.ListUsers)
-		userGroup.POST("/:id/change-password", userHandler.ChangePassword)
-	}
+	// Routes
+	r.Post("/register", userHandler.Register)
+	r.Post("/login", userHandler.Login)
+	r.Get("/users/{id}", userHandler.GetUser)
+	r.Put("/users/{id}", userHandler.UpdateUser)
+	r.Delete("/users/{id}", userHandler.DeleteUser)
 
 	// Start server
-	log.Printf("Starting user service on port %s", cfg.ServerPort)
-	if err := router.Run(":" + cfg.ServerPort); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Printf("User service starting on port %s", port)
+	if err := http.ListenAndServe(":"+port, r); err != nil {
+		log.Fatal(err)
 	}
 }
