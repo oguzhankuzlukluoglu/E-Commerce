@@ -35,27 +35,135 @@ This is a microservices-based e-commerce system built with Go, Chi framework, an
 
 ## Technology Stack
 
-- Go
+- Go 1.21+
 - Chi (HTTP router)
 - PostgreSQL
+- Redis
 - gRPC (for inter-service communication)
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+- Go 1.21 or later
+- PostgreSQL 14 or later
+- Redis
+- Make (optional, for using Makefile commands)
 
 ## Getting Started
 
-1. Clone the repository
-2. Install dependencies: `go mod tidy`
-3. Set up PostgreSQL database
-4. Configure environment variables
-5. Run services individually
+### 1. Clone the Repository
+```bash
+git clone https://github.com/yourusername/e-commerce.git
+cd e-commerce
+```
+
+### 2. Environment Setup
+
+1. Copy the example configuration file:
+```bash
+cp config.example.yaml config.yaml
+```
+
+2. Update the `config.yaml` file with your local settings:
+   - Set your PostgreSQL credentials
+   - Configure Redis connection details
+   - Set JWT secret
+   - Update service URLs if needed
+
+3. Create a `.env` file in the root directory with the following variables:
+```env
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=your_password
+DB_NAME=ecommerce
+REDIS_HOST=localhost
+REDIS_PORT=6379
+JWT_SECRET=your_jwt_secret
+```
+
+### 3. Database Setup
+
+1. Create the PostgreSQL database:
+```bash
+createdb ecommerce
+```
+
+2. Run database migrations:
+```bash
+go run migrations/main.go
+```
+
+### 4. Install Dependencies
+
+```bash
+go mod tidy
+```
+
+### 5. Running the Services
+
+You can run each service individually:
+
+```bash
+# Auth Service
+go run cmd/auth/main.go
+
+# Product Service
+go run cmd/product/main.go
+
+# Order Service
+go run cmd/order/main.go
+
+# Payment Service
+go run cmd/payment/main.go
+
+# User Service
+go run cmd/user/main.go
+```
+
+Or use the Makefile commands (if available):
+```bash
+make run-auth
+make run-product
+make run-order
+make run-payment
+make run-user
+```
+
+### 6. API Documentation
+
+API endpoints are documented in `API_ENDPOINTS.md`. Please refer to this file for detailed API documentation.
 
 ## Development
 
-To start development:
+### Running Tests
+```bash
+go test ./...
+```
 
-1. Install Go 1.21 or later
-2. Install PostgreSQL
-3. Set up your development environment
-4. Run `go mod tidy` to install dependencies
+### Code Generation
+If you modify any protobuf files:
+```bash
+protoc --go_out=. --go_opt=paths=source_relative \
+    --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+    proto/*.proto
+```
+
+## Troubleshooting
+
+1. **Database Connection Issues**
+   - Verify PostgreSQL is running
+   - Check database credentials in config.yaml
+   - Ensure database exists
+
+2. **Service Connection Issues**
+   - Verify all services are running
+   - Check service URLs in config.yaml
+   - Check network connectivity between services
+
+3. **Redis Connection Issues**
+   - Verify Redis is running
+   - Check Redis connection details in config.yaml
 
 ## License
 
