@@ -7,6 +7,7 @@ This is a microservices-based e-commerce system built with Go, Chi framework, an
 ```
 .
 ├── cmd/                    # Main applications for each microservice
+│   ├── api/               # Main API gateway
 │   ├── auth/              # Authentication service
 │   ├── product/           # Product service
 │   ├── order/             # Order service
@@ -14,14 +15,28 @@ This is a microservices-based e-commerce system built with Go, Chi framework, an
 │   └── user/              # User service
 ├── internal/              # Private application and library code
 │   ├── auth/             # Authentication service implementation
-│   ├── product/          # Product service implementation
-│   ├── order/            # Order service implementation
-│   ├── payment/          # Payment service implementation
-│   └── user/             # User service implementation
+│   ├── cart/             # Shopping cart implementation
+│   ├── middleware/       # HTTP middleware implementations
+│   ├── model/           # Internal data models
+│   ├── order/           # Order service implementation
+│   ├── payment/         # Payment service implementation
+│   ├── product/         # Product service implementation
+│   ├── repository/      # Database repository implementations
+│   ├── service/         # Business logic implementations
+│   └── user/            # User service implementation
 ├── pkg/                   # Public library code
-│   ├── config/           # Configuration management
-│   ├── models/           # Shared data models
-│   └── utils/            # Utility functions
+│   ├── cache/           # Caching utilities
+│   ├── config/          # Configuration management
+│   ├── database/        # Database connection and utilities
+│   ├── docs/            # Documentation utilities
+│   ├── errors/          # Error handling utilities
+│   ├── logger/          # Logging utilities
+│   ├── metrics/         # Metrics and monitoring
+│   ├── middleware/      # Shared middleware components
+│   ├── models/          # Shared data models
+│   └── utils/           # Utility functions
+├── docs/                 # Project documentation
+├── migrations/           # Database migrations
 └── deployments/          # Deployment configurations
 ```
 
