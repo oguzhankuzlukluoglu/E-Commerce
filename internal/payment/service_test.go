@@ -212,3 +212,32 @@ func TestListPayments(t *testing.T) {
 	assert.Equal(t, int64(15), total)
 	assert.Len(t, payments, 5)
 }
+
+type mockPaymentDB struct {
+	payments []models.Payment
+}
+
+func (m *mockPaymentDB) FindByID(id uint) *models.Payment {
+	for _, p := range m.payments {
+		if p.ID == id {
+			return &p
+		}
+	}
+	return nil
+}
+
+func TestFindByID_Found(t *testing.T) {
+	db := &mockPaymentDB{payments: []models.Payment{{Model: gorm.Model{ID: 1}}}}
+	payment := db.FindByID(1)
+	if payment == nil {
+		t.Fatal("expected payment, got nil")
+	}
+}
+
+func TestFindByID_NotFound(t *testing.T) {
+	db := &mockPaymentDB{payments: []models.Payment{{Model: gorm.Model{ID: 1}}}}
+	payment := db.FindByID(2)
+	if payment != nil {
+		t.Fatal("expected nil, got payment")
+	}
+}
