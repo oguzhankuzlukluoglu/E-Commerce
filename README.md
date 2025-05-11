@@ -40,35 +40,53 @@ This is a microservices-based e-commerce system built with Go, Chi framework, an
 └── deployments/          # Deployment configurations
 ```
 
-## Services
-
-1. **Auth Service**: Handles user authentication and authorization
-2. **Product Service**: Manages product catalog and inventory
-3. **Order Service**: Handles order processing and management
-4. **Payment Service**: Manages payment processing
-5. **User Service**: Handles user profile and management
-
 ## Technology Stack
 
-- Go 1.21+
-- Chi (HTTP router)
-- PostgreSQL
-- Redis
-- gRPC (for inter-service communication)
+### Backend Technologies
+- **Go 1.21+**: Core programming language
+- **Chi**: HTTP router and middleware
+- **PostgreSQL**: Primary database
+- **Redis**: Caching and session management
+- **gRPC**: Inter-service communication
+- **JWT**: Authentication and authorization
+- **Docker**: Containerization
+- **Prometheus**: Metrics and monitoring
+- **Swagger/OpenAPI**: API documentation
 
-## Prerequisites
+### Development Tools
+- **Go Modules**: Dependency management
+- **Air**: Hot reload for development
+- **Golangci-lint**: Code linting
+- **Go Test**: Unit and integration testing
+- **Make**: Build automation
 
-Before you begin, ensure you have the following installed:
-- Go 1.21 or later
-- PostgreSQL 14 or later
-- Redis
-- Make (optional, for using Makefile commands)
+## API Documentation
+
+Detailed API documentation is available in [API_ENDPOINTS.md](API_ENDPOINTS.md). The API includes endpoints for:
+
+- Authentication (Register, Login)
+- Products (CRUD operations)
+- Orders (Create, Update, Cancel)
+- Payments (Process, Refund)
+- User Management
+- Cart Operations
+
+## Default Admin Credentials
+
+For initial setup, the following admin user is created:
+
+```
+Email: admin@example.com
+Password: admin123
+```
+
+**Important**: Please change these credentials immediately after first login.
 
 ## Getting Started
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/oguzhankuzlukluoglu/e-commerce.git
+git clone https://github.com/yourusername/e-commerce.git
 cd e-commerce
 ```
 
@@ -144,10 +162,6 @@ make run-order
 make run-payment
 make run-user
 ```
-
-### 6. API Documentation
-
-API endpoints are documented in `API_ENDPOINTS.md`. Please refer to this file for detailed API documentation.
 
 ## Development
 
